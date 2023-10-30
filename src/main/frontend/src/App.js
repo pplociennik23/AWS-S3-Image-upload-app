@@ -1,19 +1,29 @@
-import logo from './logo.svg';
+
+import React, {useState, useEffect} from 'react';
 import './App.css';
+import axios from 'axios';
+
+const UserProfiles = () => {
+
+  const fetchUserProfiles = () => {
+
+    axios.get("http://localhost:8080/api/v1/user-profile").then(res => {
+      console.log(res);
+    });
+  }
+
+  useEffect(() => {
+   fetchUserProfiles();
+  }, []);
+
+  return <h1>Hello</h1>
+}
+
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <a
-          className="App-link"
-          href=""
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Kocham Gosię ponad życie ;*
-        </a>
-      </header>
+      <UserProfiles></UserProfiles>
     </div>
   );
 }
