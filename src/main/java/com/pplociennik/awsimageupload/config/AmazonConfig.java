@@ -1,5 +1,6 @@
 package com.pplociennik.awsimageupload.config;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -14,12 +15,14 @@ public class AmazonConfig {
 
     @Bean
     public AmazonS3 S3(){
+
         AWSCredentials awsCredentials = new BasicAWSCredentials("AKIAZ6FLJXTBBZ5ZWVNS","q6WtbzfQ5VfBaKOmldpRZlga2USFcayLJyFBS1Y0");
 
         return AmazonS3ClientBuilder
             .standard()
             .withRegion(Regions.EU_CENTRAL_1)
             .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
+            .withClientConfiguration(new ClientConfiguration().withSignerOverride("S3SignerType"))
             .build();
     }
 }

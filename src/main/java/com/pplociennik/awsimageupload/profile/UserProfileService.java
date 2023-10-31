@@ -42,8 +42,9 @@ public class UserProfileService {
         Map<String, String> metadata = extractMetadata(file);
 
         //Prepare path and filename
-        String path = String.format("%s/%s", BucketName.PROFILE_IMAGE.getBucketName(), user.getUserName());
-        String fileName = String.format("%s-%s", file.getName(), UUID.randomUUID());
+        //String path = String.format("%s/%s", BucketName.PROFILE_IMAGE.getBucketName(), user.getUserProfileId());
+        String path = String.format("%s", BucketName.PROFILE_IMAGE.getBucketName());
+        String fileName = String.format("%s-%s", file.getOriginalFilename(), UUID.randomUUID());
 
         //save file to S3 and update userProfileImageLink
         try {
@@ -71,8 +72,11 @@ public class UserProfileService {
     }
 
     private static void isFileAnImage(MultipartFile file) {
-        if(!Arrays.asList(IMAGE_JPEG, IMAGE_PNG, IMAGE_GIF).contains(file.getContentType())){
-            throw new IllegalStateException("Given file must be an image");
+        if(!Arrays.asList(
+                IMAGE_JPEG.getMimeType(),
+                IMAGE_PNG.getMimeType(),
+                IMAGE_GIF.getMimeType()).contains(file.getContentType())){
+            throw new IllegalStateException("Given file must be an image! " + file.getContentType() + " is not accepted!");
         }
     }
 
