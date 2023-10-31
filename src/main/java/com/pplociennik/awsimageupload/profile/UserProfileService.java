@@ -48,7 +48,7 @@ public class UserProfileService {
 
         //save file to S3 and update userProfileImageLink
         try {
-            fileStore.save(path, fileName, Optional.of(metadata),file.getInputStream());
+            fileStore.save(path, fileName, Optional.of(metadata),file);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
