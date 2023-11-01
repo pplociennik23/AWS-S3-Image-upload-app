@@ -1,11 +1,14 @@
 package com.pplociennik.awsimageupload.profile;
 
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.pplociennik.awsimageupload.bucket.BucketName;
 import com.pplociennik.awsimageupload.filestore.FileStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
@@ -27,32 +30,43 @@ public class UserProfileService {
         return userProfileDataAccessService.getUserProfiles();
     }
 
-    public void uploadUserProfileImage(UUID userProfileId, MultipartFile file) {
+    public void uploadUserProfileImage(UUID userProfileId, MultipartFile imageFile) {
 
-        //check if file is not empty
-        isFileEmpty(file);
+        //check if imageFile is not empty
+        isFileEmpty(imageFile);
 
-        //check if file has allowed format
-        isFileAnImage(file);
+        //check if imageFile has allowed format
+        isFileAnImage(imageFile);
 
         //check if given user exists
         UserProfile user = getUserWithGivenId(userProfileId);
 
         //create metadata
-        Map<String, String> metadata = extractMetadata(file);
+        Map<String, String> metadata = extractMetadata(imageFile);
 
-        //Prepare path and filename
-        //String path = String.format("%s/%s", BucketName.PROFILE_IMAGE.getBucketName(), user.getUserProfileId());
+        //Prepare imagePutObjectRequest that will be put into S3 bucket
+        PutObjectRequest putObjectRequest = getImageFilePutObjectRequest(imageFile);
+
+        //save imagePutObjectRequest to S3
+        fileStore.save(putObjectRequest, Optional.of(metadata));
+    }
+
+
+    private static PutObjectRequest getImageFilePutObjectRequest(MultipartFile imageFile) {
+
         String path = String.format("%s", BucketName.PROFILE_IMAGE.getBucketName());
-        String fileName = String.format("%s-%s", file.getOriginalFilename(), UUID.randomUUID());
+        String fileName = String.format("%s-%s", imageFile.getOriginalFilename(), UUID.randomUUID());
 
-        //save file to S3 and update userProfileImageLink
-        try {
-            fileStore.save(path, fileName, Optional.of(metadata),file);
+        File file = new File(Objects.requireNonNull(imageFile.getOriginalFilename()));
+
+        try(FileOutputStream fileOutputStream = new FileOutputStream(file)){
+            fileOutputStream.write(imageFile.getBytes());
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-
+        PutObjectRequest putObjectRequest = new PutObjectRequest(path,fileName,file);
+        file.delete();
+        return putObjectRequest;
     }
 
     private static Map<String, String> extractMetadata(MultipartFile file) {
