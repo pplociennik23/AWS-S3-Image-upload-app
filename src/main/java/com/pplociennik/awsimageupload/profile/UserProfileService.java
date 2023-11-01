@@ -1,11 +1,15 @@
 package com.pplociennik.awsimageupload.profile;
 
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.pplociennik.awsimageupload.bucket.BucketName;
 import com.pplociennik.awsimageupload.filestore.FileStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
@@ -27,33 +31,56 @@ public class UserProfileService {
         return userProfileDataAccessService.getUserProfiles();
     }
 
-    public void uploadUserProfileImage(UUID userProfileId, MultipartFile file) {
+    public void uploadUserProfileImage(UUID userProfileId, MultipartFile imageFile) {
 
-        //check if file is not empty
-        isFileEmpty(file);
+        //check if imageFile is not empty
+        isFileEmpty(imageFile);
 
-        //check if file has allowed format
-        isFileAnImage(file);
+        //check if imageFile has allowed format
+        isFileAnImage(imageFile);
 
         //check if given user exists
         UserProfile user = getUserWithGivenId(userProfileId);
 
         //create metadata
-        Map<String, String> metadata = extractMetadata(file);
+        Map<String, String> metadata = extractMetadata(imageFile);
 
-        //Prepare path and filename
-        //String path = String.format("%s/%s", BucketName.PROFILE_IMAGE.getBucketName(), user.getUserProfileId());
+        //save imageFile to S3 with metadata
+        saveImageFileToS3Bucket(imageFile, metadata);
+    }
+
+    private void saveImageFileToS3Bucket(MultipartFile imageFile, Map<String, String> metadata) {
+
+        File writeFile = new File(Objects.requireNonNull(imageFile.getOriginalFilename()));
+        PutObjectRequest putObjectRequest = getImageFilePutObjectRequest(writeFile, imageFile);
+        ObjectMetadata objectMetadata = getObjectMetadata(metadata);
+        putObjectRequest.setMetadata(objectMetadata);
+        fileStore.save(putObjectRequest);
+        writeFile.delete();
+    }
+
+    private static PutObjectRequest getImageFilePutObjectRequest(File writeFile, MultipartFile imageFile) {
+
         String path = String.format("%s", BucketName.PROFILE_IMAGE.getBucketName());
-        String fileName = String.format("%s-%s", file.getOriginalFilename(), UUID.randomUUID());
-
-        //save file to S3 and update userProfileImageLink
-        try {
-            fileStore.save(path, fileName, Optional.of(metadata),file.getInputStream());
+        String fileName = String.format("%s-%s", imageFile.getOriginalFilename(), UUID.randomUUID());
+        try(FileOutputStream fileOutputStream = new FileOutputStream(writeFile)){
+            fileOutputStream.write(imageFile.getBytes());
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-
+        return new PutObjectRequest(path,fileName,writeFile);
     }
+
+    private static ObjectMetadata getObjectMetadata(Map<String, String> metadata) {
+        ObjectMetadata objectMetadata = new ObjectMetadata();
+        Optional.of(metadata).ifPresent(map -> {
+            if (!map.isEmpty()){
+                map.forEach(objectMetadata::addUserMetadata);
+            }
+        });
+        return objectMetadata;
+    }
+
 
     private static Map<String, String> extractMetadata(MultipartFile file) {
         Map<String,String> metadata = new HashMap<>();
