@@ -1,5 +1,6 @@
 package com.pplociennik.awsimageupload.profile;
 
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.pplociennik.awsimageupload.bucket.BucketName;
 import com.pplociennik.awsimageupload.filestore.FileStore;
@@ -44,30 +45,42 @@ public class UserProfileService {
         //create metadata
         Map<String, String> metadata = extractMetadata(imageFile);
 
-        //Prepare imagePutObjectRequest that will be put into S3 bucket
-        PutObjectRequest putObjectRequest = getImageFilePutObjectRequest(imageFile);
-
-        //save imagePutObjectRequest to S3
-        fileStore.save(putObjectRequest, Optional.of(metadata));
+        //save imageFile to S3 with metadata
+        saveImageFileToS3Bucket(imageFile, metadata);
     }
 
+    private void saveImageFileToS3Bucket(MultipartFile imageFile, Map<String, String> metadata) {
 
-    private static PutObjectRequest getImageFilePutObjectRequest(MultipartFile imageFile) {
+        File writeFile = new File(Objects.requireNonNull(imageFile.getOriginalFilename()));
+        PutObjectRequest putObjectRequest = getImageFilePutObjectRequest(writeFile, imageFile);
+        ObjectMetadata objectMetadata = getObjectMetadata(metadata);
+        putObjectRequest.setMetadata(objectMetadata);
+        fileStore.save(putObjectRequest);
+        writeFile.delete();
+    }
+
+    private static PutObjectRequest getImageFilePutObjectRequest(File writeFile, MultipartFile imageFile) {
 
         String path = String.format("%s", BucketName.PROFILE_IMAGE.getBucketName());
         String fileName = String.format("%s-%s", imageFile.getOriginalFilename(), UUID.randomUUID());
-
-        File file = new File(Objects.requireNonNull(imageFile.getOriginalFilename()));
-
-        try(FileOutputStream fileOutputStream = new FileOutputStream(file)){
+        try(FileOutputStream fileOutputStream = new FileOutputStream(writeFile)){
             fileOutputStream.write(imageFile.getBytes());
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-        PutObjectRequest putObjectRequest = new PutObjectRequest(path,fileName,file);
-        file.delete();
-        return putObjectRequest;
+        return new PutObjectRequest(path,fileName,writeFile);
     }
+
+    private static ObjectMetadata getObjectMetadata(Map<String, String> metadata) {
+        ObjectMetadata objectMetadata = new ObjectMetadata();
+        Optional.of(metadata).ifPresent(map -> {
+            if (!map.isEmpty()){
+                map.forEach(objectMetadata::addUserMetadata);
+            }
+        });
+        return objectMetadata;
+    }
+
 
     private static Map<String, String> extractMetadata(MultipartFile file) {
         Map<String,String> metadata = new HashMap<>();
