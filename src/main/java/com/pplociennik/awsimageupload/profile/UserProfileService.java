@@ -46,23 +46,23 @@ public class UserProfileService {
         Map<String, String> metadata = extractMetadata(imageFile);
 
         //save imageFile to S3 with metadata
-        saveImageFileToS3Bucket(imageFile, metadata);
+        saveImageFileToS3Bucket(imageFile, metadata, user);
     }
 
-    private void saveImageFileToS3Bucket(MultipartFile imageFile, Map<String, String> metadata) {
+    private void saveImageFileToS3Bucket(MultipartFile imageFile, Map<String, String> metadata, UserProfile user) {
 
         File writeFile = new File(Objects.requireNonNull(imageFile.getOriginalFilename()));
-        PutObjectRequest putObjectRequest = getImageFilePutObjectRequest(writeFile, imageFile);
+        PutObjectRequest putObjectRequest = getImageFilePutObjectRequest(writeFile, imageFile, user);
         ObjectMetadata objectMetadata = getObjectMetadata(metadata);
         putObjectRequest.setMetadata(objectMetadata);
         fileStore.save(putObjectRequest);
         writeFile.delete();
     }
 
-    private static PutObjectRequest getImageFilePutObjectRequest(File writeFile, MultipartFile imageFile) {
+    private static PutObjectRequest getImageFilePutObjectRequest(File writeFile, MultipartFile imageFile, UserProfile user) {
 
         String path = String.format("%s", BucketName.PROFILE_IMAGE.getBucketName());
-        String fileName = String.format("%s-%s", imageFile.getOriginalFilename(), UUID.randomUUID());
+        String fileName = String.format("%s/%s-%s", user.getUserProfileId(), imageFile.getOriginalFilename(), UUID.randomUUID());
         try(FileOutputStream fileOutputStream = new FileOutputStream(writeFile)){
             fileOutputStream.write(imageFile.getBytes());
         } catch (IOException e) {
