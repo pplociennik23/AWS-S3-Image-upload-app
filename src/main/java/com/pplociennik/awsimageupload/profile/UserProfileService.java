@@ -49,6 +49,37 @@ public class UserProfileService {
         saveImageFileToS3Bucket(imageFile, metadata, user);
     }
 
+    private static void isFileEmpty(MultipartFile file) {
+        if(file.isEmpty()){
+            throw new IllegalStateException("Cannot upload empty file [ " + file.getSize() +" ]");
+        }
+    }
+
+    private static void isFileAnImage(MultipartFile file) {
+        if(!Arrays.asList(
+                IMAGE_JPEG.getMimeType(),
+                IMAGE_PNG.getMimeType(),
+                IMAGE_GIF.getMimeType()).contains(file.getContentType())){
+            throw new IllegalStateException("Given file must be an image! " + file.getContentType() + " is not accepted!");
+        }
+    }
+
+    private UserProfile getUserWithGivenId(UUID userProfileId) {
+        return userProfileDataAccessService
+                .getUserProfiles()
+                .stream()
+                .filter(userProfile -> userProfile.getUserProfileId().equals(userProfileId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(String.format("User profile %s not found", userProfileId)));
+    }
+
+    private static Map<String, String> extractMetadata(MultipartFile file) {
+        Map<String,String> metadata = new HashMap<>();
+        metadata.put("Content-Type", file.getContentType());
+        metadata.put("Content-Length", String.valueOf(file.getSize()));
+        return metadata;
+    }
+
     private void saveImageFileToS3Bucket(MultipartFile imageFile, Map<String, String> metadata, UserProfile user) {
 
         File writeFile = new File(Objects.requireNonNull(imageFile.getOriginalFilename()));
@@ -63,12 +94,19 @@ public class UserProfileService {
 
         String path = String.format("%s", BucketName.PROFILE_IMAGE.getBucketName());
         String fileName = String.format("%s/%s-%s", user.getUserProfileId(), imageFile.getOriginalFilename(), UUID.randomUUID());
+
+        setUserProfileImageLink(user, fileName);
+
         try(FileOutputStream fileOutputStream = new FileOutputStream(writeFile)){
             fileOutputStream.write(imageFile.getBytes());
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
         return new PutObjectRequest(path,fileName,writeFile);
+    }
+
+    private static void setUserProfileImageLink(UserProfile user, String fileName) {
+        user.setUserProfileImageLink(fileName);
     }
 
     private static ObjectMetadata getObjectMetadata(Map<String, String> metadata) {
@@ -79,37 +117,5 @@ public class UserProfileService {
             }
         });
         return objectMetadata;
-    }
-
-
-    private static Map<String, String> extractMetadata(MultipartFile file) {
-        Map<String,String> metadata = new HashMap<>();
-        metadata.put("Content-Type", file.getContentType());
-        metadata.put("Content-Length", String.valueOf(file.getSize()));
-        return metadata;
-    }
-
-    private UserProfile getUserWithGivenId(UUID userProfileId) {
-        return userProfileDataAccessService
-                .getUserProfiles()
-                .stream()
-                .filter(userProfile -> userProfile.getUserProfileId().equals(userProfileId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(String.format("User profile %s not found", userProfileId)));
-    }
-
-    private static void isFileAnImage(MultipartFile file) {
-        if(!Arrays.asList(
-                IMAGE_JPEG.getMimeType(),
-                IMAGE_PNG.getMimeType(),
-                IMAGE_GIF.getMimeType()).contains(file.getContentType())){
-            throw new IllegalStateException("Given file must be an image! " + file.getContentType() + " is not accepted!");
-        }
-    }
-
-    private static void isFileEmpty(MultipartFile file) {
-        if(file.isEmpty()){
-            throw new IllegalStateException("Cannot upload empty file [ " + file.getSize() +" ]");
-        }
     }
 }
