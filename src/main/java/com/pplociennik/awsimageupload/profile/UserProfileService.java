@@ -49,6 +49,16 @@ public class UserProfileService {
         saveImageFileToS3Bucket(imageFile, metadata, user);
     }
 
+    public byte[] downloadUserProfileImage(UUID userProfileId) {
+
+        UserProfile user = getUserWithGivenId(userProfileId);
+        String path = BucketName.PROFILE_IMAGE.getBucketName();
+        return user.getUserProfileImageLink()
+                .map(key -> fileStore.download(path,key))
+                .orElse(new byte[0]);
+    }
+
+
     private static void isFileEmpty(MultipartFile file) {
         if(file.isEmpty()){
             throw new IllegalStateException("Cannot upload empty file [ " + file.getSize() +" ]");
